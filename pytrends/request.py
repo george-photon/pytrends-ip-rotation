@@ -35,7 +35,7 @@ class TrendReq(object):
     ERROR_CODES = (500, 502, 504, 429)
 
     def __init__(self, hl='en-US', tz=360, geo='', timeout=(2, 5), proxies='',
-                 retries=0, backoff_factor=0, requests_args=None):
+                 retries=0, backoff_factor=0, requests_args=None, adapter=None):
         """
         Initialize default values for params
         """
@@ -54,6 +54,7 @@ class TrendReq(object):
         self.proxy_index = 0
         self.requests_args = requests_args or {}
         self.cookies = self.GetGoogleCookie()
+        self.custom_adapter = adapter
         # intialize widget payloads
         self.token_payload = dict()
         self.interest_over_time_widget = dict()
@@ -63,7 +64,7 @@ class TrendReq(object):
 
         self.headers = {'accept-language': self.hl}
         self.headers.update(self.requests_args.pop('headers', {}))
-        
+
     def GetGoogleCookie(self):
         """
         Gets google cookie (used for each and every proxy; once on init otherwise)
@@ -127,6 +128,9 @@ class TrendReq(object):
                           status_forcelist=TrendReq.ERROR_CODES,
                           method_whitelist=frozenset(['GET', 'POST']))
             s.mount('https://', HTTPAdapter(max_retries=retry))
+        # Custom adapter
+        if self.custom_adapter:
+            s.mount('https://', self.custom_adapter)
 
         s.headers.update(self.headers)
         if len(self.proxies) > 0:
@@ -298,9 +302,9 @@ class TrendReq(object):
         # Split dictionary columns into seperate ones
         for i, column in enumerate(result_df.columns):
             result_df["[" + str(i) + "] " + str(self.kw_list[i]) + " date"] = result_df[i].apply(pd.Series)["formattedTime"]
-            result_df["[" + str(i) + "] " + str(self.kw_list[i]) + " value"] = result_df[i].apply(pd.Series)["value"]   
+            result_df["[" + str(i) + "] " + str(self.kw_list[i]) + " value"] = result_df[i].apply(pd.Series)["value"]
             result_df = result_df.drop([i], axis=1)
-        
+
         # Adds a row with the averages at the top of the dataframe
         avg_row = {}
         for i, avg in enumerate(req_json['default']['averages']):
@@ -310,9 +314,8 @@ class TrendReq(object):
         result_df.loc[-1] = avg_row
         result_df.index = result_df.index + 1
         result_df = result_df.sort_index()
-        
-        return result_df
 
+        return result_df
 
     def interest_by_region(self, resolution='COUNTRY', inc_low_vol=False,
                            inc_geo_code=False):
@@ -496,7 +499,6 @@ class TrendReq(object):
         """Request data from Google Realtime Search Trends section and returns a dataframe"""
         # Don't know what some of the params mean here, followed the nodejs library
         # https://github.com/pat310/google-trends-api/ 's implemenration
-
 
         #sort: api accepts only 0 as the value, optional parameter
 
