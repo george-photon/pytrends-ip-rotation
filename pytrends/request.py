@@ -1,16 +1,13 @@
 import json
+from urllib.parse import quote
 
 import pandas as pd
 import requests
-
+from requests import status_codes
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from requests import status_codes
 
 from pytrends import exceptions
-
-from urllib.parse import quote
-
 
 BASE_TRENDS_URL = 'https://trends.google.com/trends'
 
@@ -35,7 +32,8 @@ class TrendReq(object):
     ERROR_CODES = (500, 502, 504, 429)
 
     def __init__(self, hl='en-US', tz=360, geo='', timeout=(2, 5), proxies='',
-                 retries=0, backoff_factor=0, requests_args=None, adapter=None):
+                 retries=0, backoff_factor=0, requests_args=None, adapter=None,
+                 session=None):
         """
         Initialize default values for params
         """
@@ -55,6 +53,7 @@ class TrendReq(object):
         self.requests_args = requests_args or {}
         self.cookies = self.GetGoogleCookie()
         self.custom_adapter = adapter
+        self.custom_session = session
         # intialize widget payloads
         self.token_payload = dict()
         self.interest_over_time_widget = dict()
@@ -131,6 +130,9 @@ class TrendReq(object):
         # Custom adapter
         if self.custom_adapter:
             s.mount('https://', self.custom_adapter)
+        # Custom session
+        if self.custom_session:
+            s = self.custom_session
 
         s.headers.update(self.headers)
         if len(self.proxies) > 0:
